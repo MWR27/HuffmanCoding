@@ -29,7 +29,7 @@ huffnode *pop_minheap(heap *h);
 void write_int(uint64_t n, int size, FILE *stream);
 uint64_t read_int(int size, FILE *stream);
 void free_tree(huffnode *node);
-char *create_file_name(char *filename, char *ext);
+char *append_extension(char *filename, char *ext);
 char *get_base_name(char *file_name);
 char *get_extension(char *file_name);
 void print_encoded_bits(FILE *stream);
@@ -47,7 +47,6 @@ int main(int argc, char *argv[]) {
         }
         //mode = (argv[1])[1];
         file_name = argv[2];
-        printf("%c", mode);
         in = fopen(file_name, "rb");
         if (in == NULL) {
             printf("Error: %s does not exist.", file_name);
@@ -58,13 +57,16 @@ int main(int argc, char *argv[]) {
             build_tree(in);
             build_table(&huffman_tree, 0);
             char *base_name = get_base_name(file_name);
-            char *out_name = create_file_name(base_name, "huffman");
+            char *out_name = append_extension(base_name, "huffman");
             out = fopen(out_name, "wb");
             //free(base_name);
             //free(out_name);
             char *extension = get_extension(file_name);
-            write_int(strlen(extension), 1, out);
-            fputs(extension, out);
+            if (extension != NULL) {
+                fputc('.', out);
+                write_int(strlen(extension), 1, out);
+                fputs(extension, out);
+            }
             free(extension);
             //putc('\0', out);
             write_tree(&huffman_tree, out);
@@ -74,16 +76,20 @@ int main(int argc, char *argv[]) {
             fclose(in);
             fclose(out);
         } else if (mode == 'd') {
+            char *out_name;
             char *base_name = get_base_name(file_name);
-            char extension[256];
-            int ext_size = read_int(1, in);
-            fgets(extension, ext_size + 1, in);
-
-            printf(extension);
-            //char *out_file_name = malloc(strlen(base_name) + 1 + ext_size + 1);
-            char *out_name = create_file_name(base_name, extension);
-            out = fopen(out_name, "wb");
+            if (getc(in) == '.') {
+                char extension[256];
+                int ext_size = getc(in);
+                fgets(extension, ext_size + 1, in);
+                out_name = append_extension(base_name, extension);
+            } else {
+                rewind(in);
+                out_name = base_name;
+            }
             free(base_name);
+            out = fopen(out_name, "wb");
+            
             free(out_name);
 
             decompress_file(in, out);
@@ -91,7 +97,6 @@ int main(int argc, char *argv[]) {
             fclose(out);
         }
     }
-    printf("%d", fopen("yourmom", "r") == NULL);
     printf("done\n");
 
     return 0;
@@ -150,7 +155,6 @@ void build_table(huffnode *node, int index) {
         build_table(node->right, index + 1);
     }
 }
-
 
 void write_encoding(FILE *in, FILE *out) {
     char byte = 0;
@@ -305,7 +309,7 @@ void free_tree(huffnode *node) {
     }
 }
 
-char *create_file_name(char *name, char *extension) {
+char *append_extension(char *name, char *extension) {
     char *file_name = (char *) malloc(strlen(name) + 1 + strlen(extension) + 1);
     int i;
     for (i = 0; name[i] != '\0'; i++) {
@@ -319,31 +323,6 @@ char *create_file_name(char *name, char *extension) {
     file_name[i] = '\0';
 
     return file_name;
-    /*
-    int dot_pos = -1;
-    int i;
-    for (i = 0; file_name[i] != '\0'; i++) {
-        if (file_name[i] == '.') {
-            dot_pos = i;
-        }
-    }
-    if (dot_pos == -1) {
-        dot_pos = i;
-    }
-
-    char *new_file_name = (char *) malloc(dot_pos + 1 + strlen(extension) + 1);
-    for (i = 0; i < dot_pos; i++) {
-        new_file_name[i] = file_name[i];
-    }
-    new_file_name[dot_pos] = '.';
-    i++;
-    for (int j = 0; extension[j] != '\0'; i++, j++) {
-        new_file_name[i] = extension[j];
-    }
-    new_file_name[i] = '\0';
-
-    return new_file_name;
-    */
 }
 
 char *get_base_name(char *file_name) {
